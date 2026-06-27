@@ -1,41 +1,22 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import axios from "axios";
 import { io } from "socket.io-client";
 
 const socket = io("https://instagram-clone-eid7.onrender.com");
 
 function Chat() {
-  const storedUser = JSON.parse(localStorage.getItem("user"));  
+  const storedUser = JSON.parse(localStorage.getItem("user"));
+  const userId = storedUser?.id || storedUser?._id;
 
-const userId = storedUser?.id || storedUser?._id;
-  
-  
- const [conversations, setConversations] = useState([]);
-  console.log("USER FROM LOCALSTORAGE:", storedUser);
-  console.log("USER ID USED:", userId);
-
- 
+  const [conversations, setConversations] = useState([]);
   const [currentChat, setCurrentChat] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
 
-  // ✅ FETCH CONVERSATIONS
-  useEffect(() => {
-    if (!userId) return;
-    fetchConversations();
-  }, [userId]);
+  console.log("USER FROM LOCALSTORAGE:", storedUser);
+  console.log("USER ID USED:", userId);
 
-  // ✅ SOCKET LISTENER
-  useEffect(() => {
-    socket.on("receiveMessage", (data) => {
-      setMessages((prev) => [...prev, data]);
-    });
-
-    return () => socket.off("receiveMessage");
-  }, []);
-
-  // 📌 GET CONVERSATIONS
-  const fetchConversations = async () => {
+  const fetchConversations = useCallback(async () => {
     try {
       const res = await axios.get(
         `https://instagram-clone-eid7.onrender.com/api/conversations/${userId}`
@@ -46,9 +27,21 @@ const userId = storedUser?.id || storedUser?._id;
     } catch (err) {
       console.log("Conversation error:", err);
     }
-  };
+  }, [userId]);
 
-  // 📌 GET MESSAGES
+  useEffect(() => {
+    if (!userId) return;
+    fetchConversations();
+  }, [userId, fetchConversations]);
+
+  useEffect(() => {
+    socket.on("receiveMessage", (data) => {
+      setMessages((prev) => [...prev, data]);
+    });
+
+    return () => socket.off("receiveMessage");
+  }, []);
+
   const fetchMessages = async (conversationId) => {
     try {
       const res = await axios.get(
@@ -60,13 +53,11 @@ const userId = storedUser?.id || storedUser?._id;
     }
   };
 
-  // 📌 OPEN CHAT
   const openChat = (conversation) => {
     setCurrentChat(conversation);
     fetchMessages(conversation._id);
   };
 
-  // 📌 SEND MESSAGE
   const sendMessage = async () => {
     if (!newMessage.trim() || !currentChat) return;
 
@@ -83,7 +74,6 @@ const userId = storedUser?.id || storedUser?._id;
       );
 
       socket.emit("sendMessage", messageData);
-
       setMessages((prev) => [...prev, messageData]);
       setNewMessage("");
     } catch (err) {
@@ -93,8 +83,6 @@ const userId = storedUser?.id || storedUser?._id;
 
   return (
     <div style={{ display: "flex", height: "100vh", width: "100%" }}>
-
-      {/* LEFT SIDEBAR */}
       <div style={{ width: "320px", borderRight: "1px solid #ddd" }}>
         <h2 style={{ padding: "20px" }}>Messages</h2>
 
@@ -119,15 +107,11 @@ const userId = storedUser?.id || storedUser?._id;
         )}
       </div>
 
-      {/* RIGHT CHAT */}
       <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-
-        {/* HEADER */}
         <div style={{ padding: "15px", borderBottom: "1px solid #ddd" }}>
           {currentChat ? "Chat Open" : "Select a chat"}
         </div>
 
-        {/* MESSAGES */}
         <div style={{ flex: 1, padding: "20px", overflowY: "auto" }}>
           {messages.map((msg, i) => (
             <div
@@ -155,7 +139,6 @@ const userId = storedUser?.id || storedUser?._id;
           ))}
         </div>
 
-        {/* INPUT */}
         {currentChat && (
           <div
             style={{
